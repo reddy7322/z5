@@ -1,0 +1,35 @@
+name: Refresh M3U Every 2 Hours
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # Runs at minute 0 of every 2nd hour
+  workflow_dispatch:      # Allows you to run it manually for testing
+
+jobs:
+  refresh-list:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write     # Required to push changes back to repo
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install requests
+
+      - name: Run Refresh Script
+        run: python refresh_playlist.py
+
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add updated_zee5.m3u
+          git diff-index --quiet HEAD || git commit -m "Auto-update: Playlist refreshed"
+          git push
