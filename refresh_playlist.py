@@ -1,37 +1,44 @@
 import requests
-import json
 import re
 
-# URLs from your provided sources
 M3U_URL = "https://raw.githubusercontent.com/cloudplay97/m3u/refs/heads/main/zee/zee5.m3u"
 LOGO_JSON_URL = "https://tvtelugu.pages.dev/logo/channels.json"
 
-def fetch_data():
-    # Fetch M3U and JSON
+def fetch_and_modify():
+    # 1. Fetch Data
     m3u_content = requests.get(M3U_URL).text
     logos_data = requests.get(LOGO_JSON_URL).json()
     
-    # Create a lookup dictionary for logos
-    logo_lookup = {item['Channel Name'].lower(): item['logo'] for item in logos_data}
+    # Create logo mapping: {"Channel Name": "URL"}
+    logo_map = {item['Channel Name'].lower(): item['logo'] for item in logos_data}
     
-    # Simple logic to update logos if names match
+    # List of IDs to move to the "𝐓𝐞𝐥𝐮𝐠𝐮" group
+    telugu_ids = ["0-9-zeecinemalu", "0-9-zeetelugu", "0-9-9z5383485", "0-9-9z5383488"]
+    
     lines = m3u_content.splitlines()
-    updated_lines = []
+    final_output = []
     
     for line in lines:
         if line.startswith("#EXTINF"):
-            # Extract channel name from the end of the line
-            channel_name = line.split(',')[-1].strip().lower()
-            if channel_name in logo_lookup:
-                # Update the tvg-logo attribute using regex
-                new_logo = logo_lookup[channel_name]
-                line = re.sub(r'tvg-logo="[^"]*"', f'tvg-logo="{new_logo}"', line)
-        updated_lines.append(line)
-    
-    # Save the updated playlist
+            # Update Logo based on Channel Name (JSON Match)
+            channel_name_match = re.search(r',(.+)$', line)
+            if channel_name_match:
+                name = channel_name_match.group(1).strip().lower()
+                if name in logo_map:
+                    line = re.sub(r'tvg-logo="[^"]*"', f'tvg-logo="{logo_map[name]}"', line)
+            
+            # Update Group to "𝐓𝐞𝐥𝐮𝐠𝐮" if tvg-id matches your list
+            for t_id in telugu_ids:
+                if f'tvg-id="{t_id}"' in line:
+                    line = re.sub(r'group-title="[^"]*"', 'group-title="𝐓𝐞𝐥𝐮𝐠𝐮"', line)
+                    break
+                    
+        final_output.append(line)
+
+    # Save processed file
     with open("updated_zee5.m3u", "w", encoding="utf-8") as f:
-        f.write("\n".join(updated_lines))
-    print("Playlist updated successfully.")
+        f.write("\n".join(final_output))
+    print("M3U Updated: Logos matched and Telugu groups assigned.")
 
 if __name__ == "__main__":
-    fetch_data()
+    fetch_and_modify()
